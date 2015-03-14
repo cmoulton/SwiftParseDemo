@@ -11,7 +11,7 @@ import UIKit
 class MasterViewController: UITableViewController {
 
   var detailViewController: DetailViewController? = nil
-  var spots = NSMutableArray()
+  var spots = Array<Spot>()
 
   override func awakeFromNib() {
     super.awakeFromNib()
@@ -53,7 +53,7 @@ class MasterViewController: UITableViewController {
       }
       if let newSpots = fetchedSpots
       {
-        self.spots.addObjectsFromArray(fetchedSpots!)
+        self.spots += fetchedSpots!
       }
 
       self.tableView?.reloadData()
