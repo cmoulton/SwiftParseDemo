@@ -92,8 +92,9 @@ class MasterViewController: UITableViewController {
   override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
     let cell = tableView.dequeueReusableCellWithIdentifier("Cell", forIndexPath: indexPath) as UITableViewCell
 
-    let object = spots[indexPath.row] as NSDate
-    cell.textLabel!.text = object.description
+    let spot = spots[indexPath.row] as Spot
+    cell.textLabel!.text = spot.name
+    cell.detailTextLabel?.text = "\(spot.location.latitude), \(spot.location.longitude)"
     return cell
   }
 
