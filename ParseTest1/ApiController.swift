@@ -29,10 +29,65 @@ import Foundation
 import Alamofire
 import SwiftyJSON
 
+enum KeyFields: String {
+  case appID = "appID"
+  case jsKey = "jsKey"
+  case restKey = "restKey"
+}
+
 class APIController {
-  class func getSpots(completionHandler: (Array<Spot>?, NSError?) -> Void) {
+  var manager: Alamofire.Manager
+  let keys: Dictionary<String, String>?
+  
+  required init()
+  {
+    let configuration = NSURLSessionConfiguration.defaultSessionConfiguration()
+    manager = Alamofire.Manager(configuration: configuration)
+    if let path = NSBundle.mainBundle().pathForResource("keys", ofType: "plist")
+    {
+      if let dict: NSDictionary? = NSDictionary(contentsOfFile: path)
+      {
+        keys = dict as? Dictionary<String, String>
+      }
+    }
+  }
+  
+  func getSpots(completionHandler: (Array<Spot>?, NSError?) -> Void) {
+    let appID = keys?[KeyFields.appID.rawValue]
+    let apiKey = keys?[KeyFields.restKey.rawValue]
+    if appID == nil || apiKey == nil
+    {
+      completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
+    }
+    
+    // add our auth headers
+    manager.session.configuration.HTTPAdditionalHeaders = [
+      "X-Parse-Application-Id": appID!,
+      "X-Parse-REST-API-Key": apiKey!
+    ]
+
     let path = "https://api.parse.com/1/classes/Spot/"
-    Alamofire.request(.GET, path)
+    manager.request(.GET, path)
+      .responseSpotsArray { (request, response, spots, error) in
+        completionHandler(spots, error)
+    }
+  }
+  
+  func getSpotsWithBasicAuth(completionHandler: (Array<Spot>?, NSError?) -> Void) {
+    let appID = keys?[KeyFields.appID.rawValue]
+    let jsKey = keys?[KeyFields.jsKey.rawValue]
+    if appID == nil || jsKey == nil
+    {
+      completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
+    }
+    
+    let username = appID!
+    // note: javascript key is different from REST API key, get it from
+    // Parse project -> Settings (at top) -> Keys -> Javascript Key
+    let password = "javascript-key=" + jsKey!
+    
+    manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
+      .authenticate(user: username, password: password)
       .responseSpotsArray { (request, response, spots, error) in
         completionHandler(spots, error)
     }

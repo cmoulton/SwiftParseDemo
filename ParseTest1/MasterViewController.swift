@@ -42,7 +42,8 @@ class MasterViewController: UITableViewController {
   // MARK: API
   func getSpots()
   {
-    APIController.getSpots({ (fetchedSpots, error) in
+    let apiController = APIController()
+    apiController.getSpots({ (fetchedSpots, error) in
       if error != nil
       {
         // TODO: improved error handling
