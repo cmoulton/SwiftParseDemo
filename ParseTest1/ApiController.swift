@@ -32,7 +32,7 @@ import SwiftyJSON
 enum KeyFields: String {
   case appID = "appID"
   case jsKey = "jsKey"
-  case restKey = "restKey"
+  case clientKey = "clientKey"
 }
 
 class APIController {
@@ -54,8 +54,8 @@ class APIController {
   
   func getSpots(completionHandler: (Array<Spot>?, NSError?) -> Void) {
     let appID = keys?[KeyFields.appID.rawValue]
-    let apiKey = keys?[KeyFields.restKey.rawValue]
-    if appID == nil || apiKey == nil
+    let clientKey = keys?[KeyFields.clientKey.rawValue]
+    if appID == nil || clientKey == nil
     {
       completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
     }
@@ -63,7 +63,7 @@ class APIController {
     // add our auth headers
     manager.session.configuration.HTTPAdditionalHeaders = [
       "X-Parse-Application-Id": appID!,
-      "X-Parse-REST-API-Key": apiKey!
+      "X-Parse-Client-Key": clientKey!
     ]
 
     let path = "https://api.parse.com/1/classes/Spot/"
