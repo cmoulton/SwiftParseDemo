@@ -86,12 +86,26 @@ class APIController {
     // Parse project -> Settings (at top) -> Keys -> Javascript Key
     let password = "javascript-key=" + jsKey!
     
+    let useCredential = true // toggle to switch to username/password
+    if useCredential == false
+    {
+      // Username/password
     manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
-      .authenticate(user: username, password: password)
+        .authenticate(user: username, password: password).responseSpotsArray { (request, response, spots, error) in
+          completionHandler(spots, error)
+      }
+    }
+    else
+    {
+      // NSURLCredential
+      let credential = NSURLCredential(user: username, password: password, persistence: NSURLCredentialPersistence.ForSession)
+      manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
+        .authenticate(usingCredential: credential)
       .responseSpotsArray { (request, response, spots, error) in
         completionHandler(spots, error)
     }
   }
+}
 }
 
 extension Alamofire.Request {
