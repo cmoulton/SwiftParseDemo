@@ -35,10 +35,18 @@ enum KeyFields: String {
   case clientKey = "clientKey"
 }
 
+private let _APIControllerSharedInstance = APIController()
+
 class APIController {
+  class var sharedInstance: APIController {
+    return _APIControllerSharedInstance
+  }
+  
   var manager: Alamofire.Manager
   let keys: Dictionary<String, String>?
+  var sessionToken: String?
   
+  // MARK: Lifecycle
   required init()
   {
     let configuration = NSURLSessionConfiguration.defaultSessionConfiguration()
@@ -50,62 +58,54 @@ class APIController {
         keys = dict as? Dictionary<String, String>
       }
     }
-  }
-  
-  func getSpots(completionHandler: (Array<Spot>?, NSError?) -> Void) {
     let appID = keys?[KeyFields.appID.rawValue]
     let clientKey = keys?[KeyFields.clientKey.rawValue]
-    if appID == nil || clientKey == nil
+    if appID != nil && clientKey != nil
     {
-      completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
+      // add our auth headers
+      manager.session.configuration.HTTPAdditionalHeaders = [
+        "X-Parse-Application-Id": appID!,
+        "X-Parse-Client-Key": clientKey!
+      ]
     }
-    
-    // add our auth headers
-    manager.session.configuration.HTTPAdditionalHeaders = [
-      "X-Parse-Application-Id": appID!,
-      "X-Parse-Client-Key": clientKey!
-    ]
-
+  }
+  
+  // MARK: Login
+  func isUserLoggedIn() -> Bool {
+    if (sessionToken == nil || sessionToken!.isEmpty)
+    {
+      return false
+    }
+    // need to validate session token
+    return true
+  }
+  
+  func signUp(username: String!, password: String!, completionHandler: (Bool, NSError?) -> Void) {
+    let path = "https://api.parse.com/1/users/"
+    manager.request(.POST, path, parameters: ["username": username, "password": password], encoding: .JSON)
+      .responseUserSessionToken { (request, response, token, error) in
+        self.sessionToken = token
+        completionHandler(self.isUserLoggedIn(), error)
+    }
+  }
+  
+  func login(username: String!, password: String!, completionHandler: (Bool, NSError?) -> Void) {
+    let path = "https://api.parse.com/1/login/"
+    manager.request(.GET, path, parameters: ["username": username, "password": password])
+      .responseUserSessionToken { (request, response, token, error) in
+        self.sessionToken = token
+        completionHandler(self.isUserLoggedIn(), error)
+    }
+  }
+  
+  // MARK: Spots
+  func getSpots(completionHandler: (Array<Spot>?, NSError?) -> Void) {
     let path = "https://api.parse.com/1/classes/Spot/"
     manager.request(.GET, path)
       .responseSpotsArray { (request, response, spots, error) in
         completionHandler(spots, error)
     }
   }
-  
-  func getSpotsWithBasicAuth(completionHandler: (Array<Spot>?, NSError?) -> Void) {
-    let appID = keys?[KeyFields.appID.rawValue]
-    let jsKey = keys?[KeyFields.jsKey.rawValue]
-    if appID == nil || jsKey == nil
-    {
-      completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
-    }
-    
-    let username = appID!
-    // note: javascript key is different from REST API key, get it from
-    // Parse project -> Settings (at top) -> Keys -> Javascript Key
-    let password = "javascript-key=" + jsKey!
-    
-    let useCredential = true // toggle to switch to username/password
-    if useCredential == false
-    {
-      // Username/password
-    manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
-        .authenticate(user: username, password: password).responseSpotsArray { (request, response, spots, error) in
-          completionHandler(spots, error)
-      }
-    }
-    else
-    {
-      // NSURLCredential
-      let credential = NSURLCredential(user: username, password: password, persistence: NSURLCredentialPersistence.ForSession)
-      manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
-        .authenticate(usingCredential: credential)
-      .responseSpotsArray { (request, response, spots, error) in
-        completionHandler(spots, error)
-    }
-  }
-}
 }
 
 extension Alamofire.Request {
@@ -153,5 +153,39 @@ extension Alamofire.Request {
       completionHandler(request, response, spots as? Array<Spot>, error)
     })
   }
+  
+  class func sessionTokenFromUserResponseSerializer() -> Serializer {
+    return { request, response, data in
+      if data == nil {
+        return (nil, nil)
+      }
+      
+      var jsonError: NSError?
+      let jsonData:AnyObject? = NSJSONSerialization.JSONObjectWithData(data!, options: nil, error: &jsonError)
+      if jsonData == nil || jsonError != nil
+      {
+        return (nil, jsonError)
+      }
+      let json = JSON(jsonData!)
+      if json.error != nil || json == nil
+      {
+        return (nil, json.error)
+      }
+      println(json)
+      if let errorString = json["error"].string
+      {
+        return (nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: errorString]))
+      }
+      
+      return (json["sessionToken"].string, nil)
+    }
+  }
+  
+  func responseUserSessionToken(completionHandler: (NSURLRequest, NSHTTPURLResponse?, String?, NSError?) -> Void) -> Self {
+    return response(serializer: Request.sessionTokenFromUserResponseSerializer(), completionHandler: { (request, response, sessionToken, error) in
+      completionHandler(request, response, sessionToken as? String, error)
+    })
+  }
+
   
 }
