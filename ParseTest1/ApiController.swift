@@ -140,8 +140,8 @@ extension Alamofire.Request {
         let id = jsonSpot["objectId"].intValue
         let name = jsonSpot["Name"].stringValue
         let lat = jsonSpot["Location"]["latitude"].doubleValue
-        let long = jsonSpot["Location"]["longitude"].doubleValue
-        let spot = Spot(aName: name, aLat: lat, aLong: long, anId: id)
+        let lon = jsonSpot["Location"]["longitude"].doubleValue
+        let spot = Spot(aName: name, aLat: lat, aLon: lon, anId: id)
         allSpots.append(spot)
       }
       return (allSpots, nil)
