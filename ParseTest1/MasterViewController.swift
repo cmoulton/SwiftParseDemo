@@ -34,16 +34,30 @@ class MasterViewController: UITableViewController {
     }
   }
   
-  override func viewWillAppear(animated: Bool) {
-    super.viewWillAppear(animated)
-    self.getSpots()
+  override func viewDidAppear(animated: Bool) {
+    super.viewDidAppear(animated)
+    if APIController.sharedInstance.isUserLoggedIn()
+    {
+      self.getSpots()
+    }
+    else
+    {
+      self.showLoginScreen()
+    }
+  }
+  
+  // MARK: View Transitions
+  func showLoginScreen()
+  {
+    let storyboard = UIStoryboard(name: "Main", bundle: nil)
+    let loginVC:UIViewController = storyboard.instantiateViewControllerWithIdentifier("LoginViewController") as UIViewController
+    self.presentViewController(loginVC, animated: false, completion: nil)
   }
   
   // MARK: API
   func getSpots()
   {
-    let apiController = APIController()
-    apiController.getSpots({ (fetchedSpots, error) in
+    APIController.sharedInstance.getSpots({ (fetchedSpots, error) in
       if error != nil
       {
         // TODO: improved error handling
