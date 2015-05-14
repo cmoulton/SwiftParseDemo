@@ -9,19 +9,19 @@
 /* Results to GET https://api.parse.com/1/classes/Spot/ look like:
 
 {
-  "results": [
-    {
-      "Location": {
-        "__type": "GeoPoint",
-        "latitude": 43.4304344,
-        "longitude": -80.4763151
-      },
-      "Name": "My Cafe",
-      "createdAt": "2015-03-14T16:08:03.430Z",
-      "objectId": "uwhQUedJxo",
-      "updatedAt": "2015-03-14T16:09:04.355Z"
-    }
-  ]
+"results": [
+{
+"Location": {
+"__type": "GeoPoint",
+"latitude": 43.4304344,
+"longitude": -80.4763151
+},
+"Name": "My Cafe",
+"createdAt": "2015-03-14T16:08:03.430Z",
+"objectId": "uwhQUedJxo",
+"updatedAt": "2015-03-14T16:09:04.355Z"
+}
+]
 }
 */
 
@@ -43,12 +43,13 @@ class APIController {
   {
     let configuration = NSURLSessionConfiguration.defaultSessionConfiguration()
     manager = Alamofire.Manager(configuration: configuration)
-    if let path = NSBundle.mainBundle().pathForResource("keys", ofType: "plist")
+    if let path = NSBundle.mainBundle().pathForResource("keys", ofType: "plist"), dict: NSDictionary? = NSDictionary(contentsOfFile: path)
     {
-      if let dict: NSDictionary? = NSDictionary(contentsOfFile: path)
-      {
-        keys = dict as? Dictionary<String, String>
-      }
+      keys = dict as? Dictionary<String, String>
+    }
+    else
+    {
+      keys = nil
     }
   }
   
@@ -65,7 +66,7 @@ class APIController {
       "X-Parse-Application-Id": appID!,
       "X-Parse-Client-Key": clientKey!
     ]
-
+    
     let path = "https://api.parse.com/1/classes/Spot/"
     manager.request(.GET, path)
       .responseSpotsArray { (request, response, spots, error) in
@@ -90,7 +91,7 @@ class APIController {
     if useCredential == false
     {
       // Username/password
-    manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
+      manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
         .authenticate(user: username, password: password).responseSpotsArray { (request, response, spots, error) in
           completionHandler(spots, error)
       }
@@ -101,11 +102,11 @@ class APIController {
       let credential = NSURLCredential(user: username, password: password, persistence: NSURLCredentialPersistence.ForSession)
       manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
         .authenticate(usingCredential: credential)
-      .responseSpotsArray { (request, response, spots, error) in
-        completionHandler(spots, error)
+        .responseSpotsArray { (request, response, spots, error) in
+          completionHandler(spots, error)
+      }
     }
   }
-}
 }
 
 extension Alamofire.Request {
