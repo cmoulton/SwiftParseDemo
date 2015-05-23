@@ -12,6 +12,7 @@ class MasterViewController: UITableViewController {
 
   var detailViewController: DetailViewController? = nil
   var spots = Array<Spot>()
+  var apiController = APIController()
 
   override func awakeFromNib() {
     super.awakeFromNib()
@@ -42,7 +43,6 @@ class MasterViewController: UITableViewController {
   // MARK: API
   func getSpots()
   {
-    let apiController = APIController()
     apiController.getSpots({ (fetchedSpots, error) in
       if error != nil
       {
