@@ -12,6 +12,7 @@ class MasterViewController: UITableViewController {
 
   var detailViewController: DetailViewController? = nil
   var spots = Array<Spot>()
+  var apiController = APIController()
 
   override func awakeFromNib() {
     super.awakeFromNib()
@@ -34,9 +35,24 @@ class MasterViewController: UITableViewController {
     }
   }
   
-  override func viewWillAppear(animated: Bool) {
-    super.viewWillAppear(animated)
-    self.getSpots()
+  override func viewDidAppear(animated: Bool) {
+    super.viewDidAppear(animated)
+    if APIController.sharedInstance.isUserLoggedIn()
+    {
+      self.getSpots()
+    }
+    else
+    {
+      self.showLoginScreen()
+    }
+  }
+  
+  // MARK: View Transitions
+  func showLoginScreen()
+  {
+    let storyboard = UIStoryboard(name: "Main", bundle: nil)
+    let loginVC:UIViewController = storyboard.instantiateViewControllerWithIdentifier("LoginViewController") as! UIViewController
+    self.presentViewController(loginVC, animated: false, completion: nil)
   }
   
   // MARK: API
