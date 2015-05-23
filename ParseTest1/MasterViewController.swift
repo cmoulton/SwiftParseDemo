@@ -58,7 +58,6 @@ class MasterViewController: UITableViewController {
   // MARK: API
   func getSpots()
   {
-    let apiController = APIController()
     apiController.getSpots({ (fetchedSpots, error) in
       if error != nil
       {
