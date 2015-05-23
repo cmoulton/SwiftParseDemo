@@ -51,14 +51,15 @@ class MasterViewController: UITableViewController {
   func showLoginScreen()
   {
     let storyboard = UIStoryboard(name: "Main", bundle: nil)
-    let loginVC:UIViewController = storyboard.instantiateViewControllerWithIdentifier("LoginViewController") as! UIViewController
-    self.presentViewController(loginVC, animated: false, completion: nil)
+    if let loginVC:UIViewController = storyboard.instantiateViewControllerWithIdentifier("LoginViewController") as? UIViewController {
+      self.presentViewController(loginVC, animated: false, completion: nil)
+    }
   }
   
   // MARK: API
   func getSpots()
   {
-    apiController.getSpots({ (fetchedSpots, error) in
+    APIController.sharedInstance.getSpots({ (fetchedSpots, error) in
       if error != nil
       {
         // TODO: improved error handling
