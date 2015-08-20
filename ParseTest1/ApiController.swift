@@ -110,49 +110,45 @@ class APIController {
 }
 
 extension Alamofire.Request {
-  class func spotsArrayResponseSerializer() -> Serializer {
-    return { request, response, data in
-      if data == nil {
-        return (nil, nil)
-      }
-      
-      var jsonError: NSError?
-      let jsonData:AnyObject? = NSJSONSerialization.JSONObjectWithData(data!, options: nil, error: &jsonError)
-      if jsonData == nil || jsonError != nil
+  func responseSpotsArray(completionHandler: (NSURLRequest, NSHTTPURLResponse?, [Spot]?, NSError?) -> Void) -> Self {
+    let responseSerializer = GenericResponseSerializer<[Spot]> { request, response, data in
+      if let responseData = data
       {
-        return (nil, jsonError)
+        var jsonError: NSError?
+        let jsonData:AnyObject? = NSJSONSerialization.JSONObjectWithData(data!, options: nil, error: &jsonError)
+        if jsonData == nil || jsonError != nil
+        {
+          return (nil, jsonError)
+        }
+        let json = JSON(jsonData!)
+        if json.error != nil || json == nil
+        {
+          return (nil, json.error)
+        }
+        println(json)
+        if let errorString = json["error"].string
+        {
+          return (nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: errorString]))
+        }
+        
+        var allSpots:Array = Array<Spot>()
+        let results = json["results"]
+        for (index, jsonSpot) in results
+        {
+          println(jsonSpot)
+          let id = jsonSpot["objectId"].intValue
+          let name = jsonSpot["Name"].stringValue
+          let lat = jsonSpot["Location"]["latitude"].doubleValue
+          let lon = jsonSpot["Location"]["longitude"].doubleValue
+          let spot = Spot(aName: name, aLat: lat, aLon: lon, anId: id)
+          allSpots.append(spot)
+        }
+        return (allSpots, nil)
       }
-      let json = JSON(jsonData!)
-      if json.error != nil || json == nil
-      {
-        return (nil, json.error)
-      }
-      println(json)
-      if let errorString = json["error"].string
-      {
-        return (nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: errorString]))
-      }
-      
-      var allSpots:Array = Array<Spot>()
-      let results = json["results"]
-      for (index, jsonSpot) in results
-      {
-        println(jsonSpot)
-        let id = jsonSpot["objectId"].intValue
-        let name = jsonSpot["Name"].stringValue
-        let lat = jsonSpot["Location"]["latitude"].doubleValue
-        let lon = jsonSpot["Location"]["longitude"].doubleValue
-        let spot = Spot(aName: name, aLat: lat, aLon: lon, anId: id)
-        allSpots.append(spot)
-      }
-      return (allSpots, nil)
+      return (nil, nil)
     }
+    
+    return response(responseSerializer: responseSerializer,
+      completionHandler: completionHandler)
   }
-  
-  func responseSpotsArray(completionHandler: (NSURLRequest, NSHTTPURLResponse?, Array<Spot>?, NSError?) -> Void) -> Self {
-    return response(serializer: Request.spotsArrayResponseSerializer(), completionHandler: { (request, response, spots, error) in
-      completionHandler(request, response, spots as? Array<Spot>, error)
-    })
-  }
-  
 }
