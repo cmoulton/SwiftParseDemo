@@ -14,8 +14,7 @@ class Spot {
   let location: CLLocationCoordinate2D
   let id: Int?
   
-  required init(aName: String, aLat: Double, aLon: Double, anId: Int?)
-  {
+  required init(aName: String, aLat: Double, aLon: Double, anId: Int?) {
     name = aName
     location = CLLocationCoordinate2D(latitude: aLat, longitude: aLon)
     id = anId

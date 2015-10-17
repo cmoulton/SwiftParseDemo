@@ -37,29 +37,32 @@ enum KeyFields: String {
 
 class APIController {
   var manager: Alamofire.Manager
-  let keys: Dictionary<String, String>?
+  let keys: NSDictionary?
   
-  required init()
-  {
+  required init() {
     let configuration = NSURLSessionConfiguration.defaultSessionConfiguration()
     manager = Alamofire.Manager(configuration: configuration)
-    if let path = NSBundle.mainBundle().pathForResource("keys", ofType: "plist"), dict: NSDictionary? = NSDictionary(contentsOfFile: path)
-    {
-      keys = dict as? Dictionary<String, String>
-    }
-    else
-    {
+    if let path = NSBundle.mainBundle().pathForResource("keys", ofType: "plist") {
+      keys = NSDictionary(contentsOfFile: path)
+    } else {
       keys = nil
     }
   }
   
-  func getSpots(completionHandler: (Array<Spot>?, NSError?) -> Void) {
-    let appID = keys?[KeyFields.appID.rawValue]
-    let clientKey = keys?[KeyFields.clientKey.rawValue]
-    if appID == nil || clientKey == nil
-    {
-      completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
+  func getSpotsWithBasicAuth(completionHandler: (Result<[Spot], NSError>) -> Void) {
+    let appID = keys?[KeyFields.appID.rawValue] as? String
+    let jsKey = keys?[KeyFields.jsKey.rawValue] as? String
+    let clientKey = keys?[KeyFields.clientKey.rawValue] as? String
+    if appID == nil || jsKey == nil {
+      let error = NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"])
+      completionHandler(.Failure(error))
+      return
     }
+    
+    let username = appID!
+    // note: javascript key is different from REST API key, get it from
+    // Parse project -&gt; Settings (at top) -&gt; Keys -&gt; Javascript Key
+    let password = "javascript-key=" + jsKey!
     
     // add our auth headers
     manager.session.configuration.HTTPAdditionalHeaders = [
@@ -67,88 +70,80 @@ class APIController {
       "X-Parse-Client-Key": clientKey!
     ]
     
-    let path = "https://api.parse.com/1/classes/Spot/"
-    manager.request(.GET, path)
-      .responseSpotsArray { (request, response, spots, error) in
-        completionHandler(spots, error)
+    manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
+      .validate()
+      .authenticate(user: username, password: password)
+      .responseSpotsArray { response in
+        completionHandler(response.result)
     }
   }
   
-  func getSpotsWithBasicAuth(completionHandler: (Array<Spot>?, NSError?) -> Void) {
-    let appID = keys?[KeyFields.appID.rawValue]
-    let jsKey = keys?[KeyFields.jsKey.rawValue]
-    if appID == nil || jsKey == nil
-    {
-      completionHandler(nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"]))
+  func getSpotsWithBasicAuthCredential(completionHandler: (Result<[Spot], NSError>) -> Void) {
+    let appID = keys?[KeyFields.appID.rawValue] as? String
+    let jsKey = keys?[KeyFields.jsKey.rawValue] as? String
+    if appID == nil || jsKey == nil {
+      let error = NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: "Could not load API keys from keys.plist"])
+      completionHandler(.Failure(error))
+      return
     }
     
     let username = appID!
     // note: javascript key is different from REST API key, get it from
-    // Parse project -> Settings (at top) -> Keys -> Javascript Key
+    // Parse project -&gt; Settings (at top) -&gt; Keys -&gt; Javascript Key
     let password = "javascript-key=" + jsKey!
     
-    let useCredential = true // toggle to switch to username/password
-    if useCredential == false
-    {
-      // Username/password
-      manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
-        .authenticate(user: username, password: password).responseSpotsArray { (request, response, spots, error) in
-          completionHandler(spots, error)
-      }
-    }
-    else
-    {
-      // NSURLCredential
-      let credential = NSURLCredential(user: username, password: password, persistence: NSURLCredentialPersistence.ForSession)
-      manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
-        .authenticate(usingCredential: credential)
-        .responseSpotsArray { (request, response, spots, error) in
-          completionHandler(spots, error)
-      }
+    let credential = NSURLCredential(user: username, password: password, persistence: NSURLCredentialPersistence.ForSession)
+    
+    manager.request(.GET, "https://api.parse.com/1/classes/Spot/")
+      .authenticate(usingCredential: credential)
+      .responseSpotsArray { response in
+        completionHandler(response.result)
     }
   }
 }
 
 extension Alamofire.Request {
-  func responseSpotsArray(completionHandler: (NSURLRequest, NSHTTPURLResponse?, [Spot]?, NSError?) -> Void) -> Self {
-    let responseSerializer = GenericResponseSerializer<[Spot]> { request, response, data in
-      if let responseData = data
-      {
-        var jsonError: NSError?
-        let jsonData:AnyObject? = NSJSONSerialization.JSONObjectWithData(data!, options: nil, error: &jsonError)
-        if jsonData == nil || jsonError != nil
-        {
-          return (nil, jsonError)
-        }
-        let json = JSON(jsonData!)
-        if json.error != nil || json == nil
-        {
-          return (nil, json.error)
-        }
-        println(json)
-        if let errorString = json["error"].string
-        {
-          return (nil, NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: errorString]))
-        }
-        
-        var allSpots:Array = Array<Spot>()
-        let results = json["results"]
-        for (index, jsonSpot) in results
-        {
-          println(jsonSpot)
-          let id = jsonSpot["objectId"].intValue
-          let name = jsonSpot["Name"].stringValue
-          let lat = jsonSpot["Location"]["latitude"].doubleValue
-          let lon = jsonSpot["Location"]["longitude"].doubleValue
-          let spot = Spot(aName: name, aLat: lat, aLon: lon, anId: id)
-          allSpots.append(spot)
-        }
-        return (allSpots, nil)
+  func responseSpotsArray(completionHandler: (Response<[Spot], NSError>) -> Void) -> Self {
+    let serializer = ResponseSerializer<[Spot], NSError> { request, response, data, error in
+      guard let responseData = data else {
+        let failureReason = "Array could not be serialized because input data was nil."
+        let error = Error.errorWithCode(.DataSerializationFailed, failureReason: failureReason)
+        return .Failure(error)
       }
-      return (nil, nil)
+      
+      let JSONResponseSerializer = Request.JSONResponseSerializer(options: .AllowFragments)
+      let result = JSONResponseSerializer.serializeResponse(request, response, responseData, error)
+      
+      if result.isSuccess {
+        if let value = result.value {
+          let json = SwiftyJSON.JSON(value)
+          if let errorString = json["error"].string {
+            return .Failure(NSError(domain: "parseAPICall", code: 200, userInfo: [NSLocalizedDescriptionKey: errorString]))
+          }
+          var allSpots = Array<Spot>()
+          let results = json["results"]
+          for (_, jsonSpot) in results
+          {
+            let id = jsonSpot["objectId"].intValue
+            let name = jsonSpot["Name"].stringValue
+            let lat = jsonSpot["Location"]["latitude"].doubleValue
+            let lon = jsonSpot["Location"]["longitude"].doubleValue
+            let spot = Spot(aName: name, aLat: lat, aLon: lon, anId: id)
+            allSpots.append(spot)
+          }
+          return .Success(allSpots)
+        }
+      }
+      
+      // Check for error after trying to parse JSON, since sometimes we get descriptive errors in the JSON
+      guard error == nil else {
+        return .Failure(error!)
+      }
+      
+      let error = Error.errorWithCode(.JSONSerializationFailed, failureReason: "JSON could not be converted to object")
+      return .Failure(error)
     }
     
-    return response(responseSerializer: responseSerializer,
-      completionHandler: completionHandler)
+    return response(responseSerializer:serializer, completionHandler: completionHandler)
   }
 }
